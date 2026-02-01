@@ -291,6 +291,7 @@ show_dm_toc(const dict_t *config, const apa_toc_t *toc, const char *device_name)
     char formatted;
     char *path;
 
+    unsigned int format_offset;
     result = hio_probe(config, device_name, &hio);
     if (result != RET_OK || hio == NULL) {
         return;
@@ -322,10 +323,6 @@ show_dm_toc(const dict_t *config, const apa_toc_t *toc, const char *device_name)
 
         /* content-aware part */
         switch (part->type) {
-            case PS2_SWAP_PARTITION:
-            case PS2_LINUX_PARTITION:
-            case PS2_GAME_PARTITION:
-                break;
             case PS2_HDL_PARTITION:
                 strcpy(pconcise->flags, "ro");
                 result = hdl_read_game_alloc_table(hio, toc, 0, i, &gat);
@@ -356,11 +353,21 @@ show_dm_toc(const dict_t *config, const apa_toc_t *toc, const char *device_name)
             ptable->target_args = part->start + 8192;
 
             offset = ptable->num_sectors;
+            switch (part->type) {
+                case PS2_EXT2_PARTITION:
+                    format_offset = 8 * 512;
+                    break;
+
+                default:
+                    format_offset = 4 * 512;
+                    break;
+            }
+
             for (j = 0; j < part->nsub; j++) {
                 ptable++;
                 ptable->logical_start_sector = offset;
-                ptable->num_sectors = part->subs[j].length - 2048;
-                ptable->target_args = part->subs[j].start + 2048;
+                ptable->num_sectors = part->subs[j].length - format_offset;
+                ptable->target_args = part->subs[j].start + format_offset;
                 strcpy(ptable->target_type, "linear");
                 offset += ptable->num_sectors;
             }
